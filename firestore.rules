@@ -1,0 +1,101 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 1. Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Helpers ---
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // --- Entity Validations ---
+
+    function isValidUser(data) {
+      return data.uid == request.auth.uid &&
+             data.email is string &&
+             data.role in ['admin', 'user'] &&
+             (!('displayName' in data) || data.displayName is string) &&
+             (!('photoURL' in data) || data.photoURL is string);
+    }
+
+    function isValidInterview(data) {
+      return data.userId == request.auth.uid &&
+             data.status in ['pending', 'completed', 'failed'] &&
+             data.createdAt is timestamp &&
+             (!('userName' in data) || data.userName is string) &&
+             (!('jobTitle' in data) || data.jobTitle is string) &&
+             (!('transcript' in data) || data.transcript is string) &&
+             (!('feedback' in data) || data.feedback is string) &&
+             (!('score' in data) || data.score is number);
+    }
+
+    function isValidConfig(data) {
+      return data.interviewerPrompt is string &&
+             data.feedbackPrompt is string &&
+             data.updatedAt is timestamp;
+    }
+
+    // --- Match Blocks ---
+
+    // Users
+    match /users/{userId} {
+      allow get: if isSignedIn() && (isOwner(userId) || isAdmin());
+      allow list: if isAdmin();
+      allow create: if isOwner(userId) && isValidUser(incoming()) && incoming().role == 'user'; // Users can only create themselves as 'user'
+      allow update: if (isOwner(userId) || isAdmin()) && isValidUser(incoming()) && 
+                    (isAdmin() || incoming().role == existing().role); // Only admin can change roles
+    }
+
+    // Interviews
+    match /interviews/{interviewId} {
+      allow get: if isSignedIn() && (isOwner(existing().userId) || isAdmin());
+      allow list: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() && isValidInterview(incoming()) && incoming().userId == request.auth.uid;
+      allow update: if (isOwner(existing().userId) || isAdmin()) && isValidInterview(incoming()) && (
+        // User update: restricted fields
+        (isOwner(existing().userId) && 
+         incoming().diff(existing()).affectedKeys().hasOnly(['status', 'transcript', 'vapiCallId']) &&
+         existing().status == 'pending') ||
+        // Admin update: everything
+        isAdmin()
+      );
+      allow delete: if isAdmin();
+    }
+
+    // Global Config
+    match /config/global {
+      allow read: if isSignedIn();
+      allow write: if isAdmin() && isValidConfig(incoming());
+    }
+
+    // Job Roles (Managed by Admin)
+    match /jobRoles/{roleId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+  }
+}

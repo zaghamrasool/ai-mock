@@ -1,0 +1,6 @@
+{
+  "name": "MockAI - AI Interview Platform",
+  "description": "An AI-powered mock interview platform using Vapi for voice and Gemini for feedback, featuring an admin control panel.",
+  "requestFramePermissions": ["microphone"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

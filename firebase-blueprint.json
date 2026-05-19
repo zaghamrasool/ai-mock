@@ -1,0 +1,61 @@
+{
+  "entities": {
+    "User": {
+      "title": "User Profile",
+      "description": "User account information and roles.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "displayName": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "role": { "type": "string", "enum": ["admin", "user"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email", "role"]
+    },
+    "Interview": {
+      "title": "Interview Session",
+      "description": "Record of a mock interview session.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "jobTitle": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "completed", "failed"] },
+        "transcript": { "type": "string" },
+        "feedback": { "type": "string" },
+        "score": { "type": "number" },
+        "vapiCallId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "status", "createdAt"]
+    },
+    "SystemConfig": {
+      "title": "System Configuration",
+      "description": "Admin settings for AI prompts and platform behavior.",
+      "type": "object",
+      "properties": {
+        "interviewerPrompt": { "type": "string" },
+        "feedbackPrompt": { "type": "string" },
+        "updatedBy": { "type": "string" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["interviewerPrompt", "feedbackPrompt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profiles"
+    },
+    "/interviews/{interviewId}": {
+      "schema": "Interview",
+      "description": "Mock interview records"
+    },
+    "/config/global": {
+      "schema": "SystemConfig",
+      "description": "Global settings for the AI platform"
+    }
+  }
+}
